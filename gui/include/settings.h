@@ -24,6 +24,11 @@
 
 #include <QSettings>
 
+enum class RendererType {
+	OpenGL32Core,
+	OpenGLES2
+};
+
 class Settings : public QObject
 {
 	Q_OBJECT
@@ -76,6 +81,9 @@ class Settings : public QObject
 		void RemoveManualHost(int id);
 		bool GetManualHostExists(int id)							{ return manual_hosts.contains(id); }
 		ManualHost GetManualHost(int id) const						{ return manual_hosts[id]; }
+
+		RendererType GetRendererType() const;
+		void SetRendererType(RendererType type);
 
 	signals:
 		void RegisteredHostsUpdated();
