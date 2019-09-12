@@ -50,6 +50,8 @@ class AVOpenGLWidget: public QOpenGLWidget
 
 		GLuint program;
 		GLuint vbo;
+
+		bool use_vao;
 		GLuint vao;
 
 		AVOpenGLFrame frames[2];

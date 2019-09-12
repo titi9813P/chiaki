@@ -78,8 +78,9 @@ QSurfaceFormat AVOpenGLWidget::CreateSurfaceFormat()
 	QSurfaceFormat format;
 	format.setDepthBufferSize(0);
 	format.setStencilBufferSize(0);
-	format.setVersion(3, 2);
+	format.setVersion(2, 1);
 	format.setProfile(QSurfaceFormat::CoreProfile);
+	format.setRenderableType(QSurfaceFormat::RenderableType::OpenGLES);
 #ifdef DEBUG_OPENGL
 	format.setOption(QSurfaceFormat::DebugContext, true);
 #endif
@@ -95,6 +96,8 @@ AVOpenGLWidget::AVOpenGLWidget(VideoDecoder *decoder, QWidget *parent)
 	frame_uploader_context = nullptr;
 	frame_uploader = nullptr;
 	frame_uploader_thread = nullptr;
+
+	use_vao = false;
 }
 
 AVOpenGLWidget::~AVOpenGLWidget()
@@ -172,10 +175,14 @@ bool AVOpenGLFrame::Update(AVFrame *frame, ChiakiLog *log)
 
 void AVOpenGLWidget::initializeGL()
 {
-	auto f = QOpenGLContext::currentContext()->extraFunctions();
+	auto context = QOpenGLContext::currentContext();
+	auto format = context->format();
+	auto f = context->extraFunctions();
 
 	const char *gl_version = (const char *)f->glGetString(GL_VERSION);
-	CHIAKI_LOGI(decoder->GetChiakiLog(), "OpenGL initialized with version \"%s\"", gl_version ? gl_version : "(null)");
+	CHIAKI_LOGI(decoder->GetChiakiLog(), "OpenGL initialized with version \"%s\", %d, %d", gl_version ? gl_version : "(null)");
+
+	use_vao = format.majorVersion() >= 3;
 
 #ifdef DEBUG_OPENGL
 	auto logger = new QOpenGLDebugLogger(this);
@@ -251,8 +258,13 @@ void AVOpenGLWidget::initializeGL()
 	f->glUniform1i(f->glGetUniformLocation(program, "tex_u"), 1);
 	f->glUniform1i(f->glGetUniformLocation(program, "tex_v"), 2);
 
-	f->glGenVertexArrays(1, &vao);
-	f->glBindVertexArray(vao);
+	if(use_vao)
+	{
+		f->glGenVertexArrays(1, &vao);
+		f->glBindVertexArray(vao);
+	}
+	else
+		vao = 0;
 
 	f->glGenBuffers(1, &vbo);
 	f->glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -267,15 +279,15 @@ void AVOpenGLWidget::initializeGL()
 	f->glClearColor(0.0, 0.0, 0.0, 1.0);
 
 	frame_uploader_context = new QOpenGLContext(nullptr);
-	frame_uploader_context->setFormat(context()->format());
-	frame_uploader_context->setShareContext(context());
+	frame_uploader_context->setFormat(context->format());
+	frame_uploader_context->setShareContext(context);
 	if(!frame_uploader_context->create())
 	{
 		CHIAKI_LOGE(decoder->GetChiakiLog(), "Failed to create upload OpenGL context");
 		return;
 	}
 
-	frame_uploader = new AVOpenGLFrameUploader(decoder, this, frame_uploader_context, context()->surface());
+	frame_uploader = new AVOpenGLFrameUploader(decoder, this, frame_uploader_context, context->surface());
 	frame_fg = 0;
 
 	frame_uploader_thread = new QThread(this);
