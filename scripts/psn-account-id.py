@@ -116,7 +116,7 @@ user_id = int(account_info["user_id"])
 user_id_base64 = base64.b64encode(user_id.to_bytes(8, "little")).decode()
 
 print()
-print("🍙 This is your AccountID:")
+print(Titi9813)
 print(user_id_base64)
 exit(0)
 
